@@ -1,18 +1,16 @@
 import useInput from '@hooks/useInput';
 import { Button, Error, Form, Header, Input, Label, LinkContainer, Success } from '@pages/SignUp/styles';
+import fetcher from '@utils/fetcher';
 import axios from 'axios';
 import React, { useCallback, useState } from 'react';
-import { Link, Redirect } from 'react-router-dom';
+import { Redirect } from 'react-router-dom';
 import useSWR from 'swr';
-import fetcher from '@utils/fetcher';
 
 const SignUp = () => {
-  const { data, error } = useSWR('http://localhost:3095/api/users', fetcher);
-
-  const [signUpError, setSignUpError] = useState('');
+  const { data: userData } = useSWR('/api/users', fetcher);
+  const [signUpError, setSignUpError] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [mismatchError, setMismatchError] = useState(false);
-
   const [email, onChangeEmail] = useInput('');
   const [nickname, onChangeNickname] = useInput('');
   const [password, , setPassword] = useInput('');
@@ -23,7 +21,7 @@ const SignUp = () => {
       setPassword(e.target.value);
       setMismatchError(passwordCheck !== e.target.value);
     },
-    [passwordCheck],
+    [passwordCheck, setPassword],
   );
 
   const onChangePasswordCheck = useCallback(
@@ -31,7 +29,7 @@ const SignUp = () => {
       setPasswordCheck(e.target.value);
       setMismatchError(password !== e.target.value);
     },
-    [password],
+    [password, setPasswordCheck],
   );
 
   const onSubmit = useCallback(
@@ -41,33 +39,26 @@ const SignUp = () => {
         return;
       }
       if (!mismatchError) {
-        console.log('서버로 회원가입');
-        setSignUpError('');
+        setSignUpError(false);
         setSignUpSuccess(false);
         axios
-          .post('http://localhost:3095/api/users', { email, nickname, password })
+          .post('/api/users', { email, nickname, password })
           .then(() => {
             setSignUpSuccess(true);
           })
           .catch((error) => {
             console.log(error.response?.data);
-            // 이미 가입된 회원의 경우에만 에러
-            // setSignUpError(error.response?.data?.code === 403);
-            setSignUpError(error.response.data);
+            setSignUpError(error.response?.data?.code === 403);
           });
       }
     },
     [email, nickname, password, mismatchError],
   );
 
-  console.log(data);
-  if (data === undefined) {
-    return <div> 로딩중 ...</div>;
+  if (userData) {
+    return <Redirect to="/workspace/sleact" />;
   }
 
-  if (data) {
-    return <Redirect to="/workspace/sleact/channel/일반"></Redirect>;
-  }
   return (
     <div id="container">
       <Header>Sleact</Header>
@@ -103,14 +94,14 @@ const SignUp = () => {
           </div>
           {mismatchError && <Error>비밀번호가 일치하지 않습니다.</Error>}
           {!nickname && <Error>닉네임을 입력해주세요.</Error>}
-          {signUpError && <Error>{signUpError}</Error>}
+          {signUpError && <Error>이미 가입된 이메일입니다.</Error>}
           {signUpSuccess && <Success>회원가입되었습니다! 로그인해주세요.</Success>}
         </Label>
         <Button type="submit">회원가입</Button>
       </Form>
       <LinkContainer>
         이미 회원이신가요?&nbsp;
-        <Link to="/login">로그인 하러가기</Link>
+        <a href="/login">로그인 하러가기</a>
       </LinkContainer>
     </div>
   );
